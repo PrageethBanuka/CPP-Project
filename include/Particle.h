@@ -22,6 +22,7 @@ public:
     void setEnergy(double energy);
     void addEnergy(double delta);
     double getMaxEnergy() const;
+    double getRadius() const;
 
     void collide(Particle& other); 
     bool isColliding(const Particle& other) const;
@@ -36,4 +37,4 @@ private:
     const double PARTICLE_RADIUS;
     
     mutable std::mutex particleMutex;
-}; 
+};

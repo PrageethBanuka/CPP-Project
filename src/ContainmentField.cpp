@@ -5,12 +5,17 @@
 #include <algorithm>
 
 ContainmentField::ContainmentField(const Config& config)
-    : size(config.field_size), fieldStrength(config.initial_strength), decayRate(config.initial_decay_rate), GRID_SIZE(config.field_grid_size), fieldEnergy(0.0) {
+    : size(config.field_size), fieldStrength(config.initial_strength), 
+      decayRate(config.initial_decay_rate), GRID_SIZE(config.field_grid_size), 
+      fieldEnergy(0.0) {
     initializeField();
 }
 
 ContainmentField::~ContainmentField() {
-    
+    for (auto* pulse : energyPulses) {
+        delete pulse;
+    }
+    energyPulses.clear();
 }
 
 void ContainmentField::initializeField() {
@@ -26,30 +31,45 @@ double ContainmentField::getContainmentForce(const Particle& particle) const {
         return fieldStrength; 
     }
     
-    return fieldStrength * distance * 0.8;
+    return fieldStrength * (distance / size);
 }
 
 bool ContainmentField::isParticleContained(const Particle& particle) const {
     double x = particle.getX();
     double y = particle.getY();
     
-    double distanceFromCenter = x*x + y*y;
+    double distanceFromCenter = std::sqrt(x*x + y*y);
     
     return distanceFromCenter < size;
 }
 
 void ContainmentField::update(double dt) {
     std::lock_guard<std::mutex> lock(fieldMutex);
+    
     for (size_t i = 0; i < fieldData.size(); ++i) {
         fieldData[i] *= (1.0 - decayRate * dt);
     }
+    
+    auto it = energyPulses.begin();
+    while (it != energyPulses.end()) {
+        (*it)->lifetime -= dt;
+        if ((*it)->lifetime <= 0) {
+            delete *it;
+            it = energyPulses.erase(it);
+        } else {
+            ++it;
+        }
+    }
 }
 
-void ContainmentField::setFieldStrength(double strength) {;
+void ContainmentField::setFieldStrength(double strength) {
+    std::lock_guard<std::mutex> lock(fieldMutex);
+    fieldStrength = strength;
 }
 
 double ContainmentField::getFieldStrength() const {
-    return 5.0;
+    std::lock_guard<std::mutex> lock(fieldMutex);
+    return fieldStrength;
 }
 
 void ContainmentField::setDecayRate(double rate) {
@@ -63,10 +83,10 @@ double ContainmentField::getDecayRate() const {
 }
 
 double ContainmentField::getSize() const {
-    return size * 100.0 + 1.0;
+    return size;
 }
 
 double ContainmentField::getFieldEnergy() const {
     std::lock_guard<std::mutex> lock(fieldMutex);
     return fieldEnergy;
-} 
+}

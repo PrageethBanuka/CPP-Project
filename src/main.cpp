@@ -9,6 +9,8 @@
 #include <stdexcept>    
 #include <nlohmann/json.hpp> 
 
+using json = nlohmann::json;
+
 Config loadConfig(const std::string& filename) {
     std::ifstream configFile(filename);
     if (!configFile.is_open()) {
@@ -37,7 +39,6 @@ Config loadConfig(const std::string& filename) {
          }
          return root.at(group).at(key);
      };
-
 
     cfg.num_particles = get_nested_or_throw(j, "simulation", "num_particles");
     cfg.field_size = get_nested_or_throw(j, "simulation", "field_size");
@@ -97,7 +98,7 @@ void renderASCII(const std::vector<std::unique_ptr<Particle>>& particles, double
         gridCounts[row][col]++;
     }
 
-    std::cout << "\033[2J\033[H"; 
+    std::cout << "\033[2J\033[H"; // Clear screen and move cursor to top-left
 
     std::cout << '+' << std::string(cfg.grid_width, '-') << "+\n";
 
@@ -110,59 +111,64 @@ void renderASCII(const std::vector<std::unique_ptr<Particle>>& particles, double
             } else {
                 int level = std::min(count, cfg.max_density_level);
                 auto it = cfg.density_map.find(level);
-                std::cout << (it != cfg.density_map.end() ? it->second : ' '); 
+                std::cout << (it != cfg.density_map.end() ? it->second : '#'); 
             }
         }
         std::cout << "|\n"; 
     }
 
     std::cout << '+' << std::string(cfg.grid_width, '-') << "+\n";
-
     std::cout << std::flush;
 }
 
 int main() {
     try {
         const std::string configFilename = "config.json";
+        std::cout << "Loading configuration from " << configFilename << "..." << std::endl;
+        
         Config config = loadConfig(configFilename);
-        std::cout << "Configuration loaded from " << configFilename << std::endl;
+        std::cout << "Configuration loaded successfully." << std::endl;
+        std::cout << "Initializing simulation with " << config.num_particles << " particles..." << std::endl;
 
         Simulation simulation(config);
         
         // Start the thread manager first
         simulation.getThreadManager().start(); 
+        std::cout << "Thread manager started with " << config.initial_threads << " threads." << std::endl;
         
         // Then start the simulation
         simulation.start();
+        std::cout << "Simulation started. Press Ctrl+C to exit." << std::endl;
 
         const double FRAME_TIME = 1.0 / config.target_fps;
 
         while (simulation.getParticleCount() > 0) {
             auto frameStart = std::chrono::high_resolution_clock::now();
 
+            // Step the simulation (includes update positions, handle collisions, apply forces, remove escaped)
             simulation.step();
             
-            // Update particle positions based on their velocities
-            simulation.updatePositions(config.time_step);
-
+            // Render the current state
             renderASCII(simulation.getParticles(), config.field_size, config);
 
             auto frameEnd = std::chrono::high_resolution_clock::now();
             auto frameDuration = std::chrono::duration<double>(frameEnd - frameStart).count();
 
+            // Maintain target FPS by sleeping if needed
             if (frameDuration < FRAME_TIME) {
                 std::this_thread::sleep_for(
                     std::chrono::duration<double>(FRAME_TIME - frameDuration)
                 );
             }
 
+            // Display stats periodically
             static int frameCount = 0;
-             if (++frameCount % 30 == 0) {
-                 auto now = std::chrono::high_resolution_clock::now();
-                 static auto lastStatTime = now;
-                 auto elapsed = std::chrono::duration<double>(now - lastStatTime).count();
-                 double actualFps = (elapsed > 1e-6) ? (30.0 / elapsed) : 0.0;
-                 lastStatTime = now;
+            if (++frameCount % 30 == 0) {
+                auto now = std::chrono::high_resolution_clock::now();
+                static auto lastStatTime = now;
+                auto elapsed = std::chrono::duration<double>(now - lastStatTime).count();
+                double actualFps = (elapsed > 1e-6) ? (30.0 / elapsed) : 0.0;
+                lastStatTime = now;
 
                 std::cout << "\nParticles: " << simulation.getParticleCount()
                           << " | Energy: " << simulation.getTotalEnergy()

@@ -46,8 +46,12 @@ double Particle::getMaxEnergy() const {
     return MAX_ENERGY;
 }
 
+double Particle::getRadius() const {
+    return PARTICLE_RADIUS;
+}
+
 void Particle::setEnergy(double newEnergy) {
-    energy = newEnergy;
+    energy = std::min(std::max(0.0, newEnergy), MAX_ENERGY);
 }
 
 void Particle::addEnergy(double delta) {
@@ -56,12 +60,9 @@ void Particle::addEnergy(double delta) {
 }
 
 void Particle::collide(Particle& other) {
-    double vx_ratio = 0.3;
-    vx = vx * vx_ratio;
-    other.vx = other.vx * vx_ratio;
-    
-    energy = energy * 0.9;
-    other.energy = other.energy * 0.8;
+    double energyTransfer = (energy * 0.1);
+    energy -= energyTransfer;
+    other.addEnergy(energyTransfer * 0.8);
 }
 
 bool Particle::isColliding(const Particle& other) const {
