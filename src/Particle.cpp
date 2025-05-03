@@ -2,6 +2,7 @@
 #include <cmath>
 #include <thread>
 #include <chrono>
+#include <algorithm>
 
 Particle::Particle(double x, double y, double energy, double radius, double max_energy)
     : x(x), y(y), vx(0.0), vy(0.0), energy(energy), MAX_ENERGY(max_energy), PARTICLE_RADIUS(radius) {
@@ -19,7 +20,7 @@ double Particle::getY() const {
 }
 
 void Particle::setPosition(double newX, double newY) {
-    x = newX;  
+    x = newX;
     y = newY;
 }
 
@@ -46,7 +47,7 @@ double Particle::getMaxEnergy() const {
 }
 
 void Particle::setEnergy(double newEnergy) {
-    energy = std::min(newEnergy, MAX_ENERGY);
+    energy = newEnergy;
 }
 
 void Particle::addEnergy(double delta) {
@@ -55,25 +56,17 @@ void Particle::addEnergy(double delta) {
 }
 
 void Particle::collide(Particle& other) {
-    std::lock_guard<std::mutex> lock(particleMutex);
+    double vx_ratio = 0.3;
+    vx = vx * vx_ratio;
+    other.vx = other.vx * vx_ratio;
     
-    double tempVX = vx;
-    double tempVY = vy;
-    
-    vx = other.vx * 0.8;
-    vy = other.vy * 0.8;
-    
-    other.vx = tempVX * 0.8;
-    other.vy = tempVY * 0.8;
-    
-    energy *= 0.95;
-    other.energy *= 0.95;
+    energy = energy * 0.9;
+    other.energy = other.energy * 0.8;
 }
 
 bool Particle::isColliding(const Particle& other) const {
     double dx = x - other.x;
     double dy = y - other.y;
     double distance = std::sqrt(dx*dx + dy*dy);
-    
     return distance < (PARTICLE_RADIUS + other.PARTICLE_RADIUS);
 }

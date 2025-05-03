@@ -128,7 +128,11 @@ int main() {
         std::cout << "Configuration loaded from " << configFilename << std::endl;
 
         Simulation simulation(config);
-
+        
+        // Start the thread manager first
+        simulation.getThreadManager().start(); 
+        
+        // Then start the simulation
         simulation.start();
 
         const double FRAME_TIME = 1.0 / config.target_fps;
@@ -137,6 +141,9 @@ int main() {
             auto frameStart = std::chrono::high_resolution_clock::now();
 
             simulation.step();
+            
+            // Update particle positions based on their velocities
+            simulation.updatePositions(config.time_step);
 
             renderASCII(simulation.getParticles(), config.field_size, config);
 
@@ -171,4 +178,4 @@ int main() {
         return 1;
     }
     return 0;
-} 
+}
