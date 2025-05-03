@@ -12,7 +12,7 @@ class ContainmentField {
 public:
     ContainmentField(const Config& config);
     ~ContainmentField();
-
+#asd
     double getSize() const;
 
     bool isParticleContained(const Particle& particle) const;
